@@ -63,6 +63,11 @@ class Game:
         # Load tile images
         TileTypes.load_images(self.TILE_SIZE)
         
+        # Add font for hover text
+        self.hover_font = pygame.font.Font(None, 24)
+        self.hover_text = None
+        self.hover_text_pos = None
+        
     def update_camera(self):
         # Center camera on player with some margin from edges
         margin_x = self.VIEWPORT_WIDTH // 3
@@ -161,6 +166,19 @@ class Game:
                     prompt_rect = prompt.get_rect(center=(self.VIEWPORT_WIDTH * self.TILE_SIZE // 2,
                                                         text_rect.bottom + 40))
                     self.screen.blit(prompt, prompt_rect)
+        
+        # Draw hover text if it exists
+        if self.hover_text and self.hover_text_pos:
+            text_surface = self.hover_font.render(self.hover_text, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=self.hover_text_pos)
+            
+            # Draw background for better visibility
+            padding = 4
+            bg_rect = text_rect.inflate(padding * 2, padding * 2)
+            pygame.draw.rect(self.screen, (0, 0, 0), bg_rect)
+            
+            # Draw text
+            self.screen.blit(text_surface, text_rect)
         
         pygame.display.flip()
     
@@ -268,13 +286,14 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
             elif self.sleeping and pygame.time.get_ticks() - self.sleep_start_time >= self.sleep_duration:
-                # After sleep animation, wait for any input to wake up
                 if event.type in [pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN]:
-                    print("Wake up input detected")  # Debug print
                     self.sleeping = False
-                    self.player.complete_sleep()  # This triggers the reset
+                    self.player.complete_sleep()
             elif not self.sleeping:
-                # Normal event handling when not sleeping
+                # Update hover text based on mouse position
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                self.update_hover_text(mouse_x, mouse_y)
+                
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if self.handle_gui_click(event.pos):
                         continue
@@ -339,6 +358,30 @@ class Game:
                 pygame.draw.rect(self.screen, item.icon_color,
                                (screen_x + 10, screen_y + 10,
                                 self.TILE_SIZE - 20, self.TILE_SIZE - 20))
+
+    def update_hover_text(self, mouse_x, mouse_y):
+        # Convert mouse position to tile coordinates
+        tile_x = mouse_x // self.TILE_SIZE + self.camera_x
+        tile_y = mouse_y // self.TILE_SIZE + self.camera_y
+        
+        # Check if mouse is within map area
+        if (0 <= tile_x < len(self.current_map.tiles[0]) and 
+            0 <= tile_y < len(self.current_map.tiles) and
+            mouse_y < self.VIEWPORT_HEIGHT * self.TILE_SIZE):  # Not in GUI area
+            
+            tile = self.current_map.tiles[tile_y][tile_x]
+            tile_props = TileTypes.get_tile_properties(tile, (tile_x, tile_y))
+            
+            # Get tile name from properties
+            self.hover_text = tile_props.get('name', '')
+            # Position text above the tile
+            self.hover_text_pos = (
+                mouse_x,
+                mouse_y - 20  # 20 pixels above mouse
+            )
+        else:
+            self.hover_text = None
+            self.hover_text_pos = None
 
 if __name__ == "__main__":
     game = Game()
