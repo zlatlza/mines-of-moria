@@ -110,17 +110,14 @@ class TileTypes:
         
         properties = base_properties.get(tile_type, base_properties[TileTypes.FLOOR]).copy()
         
-        # If it's a rock tile and we have position data, update properties with rock-specific data
-        if tile_type == TileTypes.ROCK and position in TileTypes.rock_data:
-            rock_type = TileTypes.rock_data[position]
-            properties.update({
-                'name': rock_type['name'],
-                'color': rock_type['color'],
-                'mining_level': rock_type['mining_level'],
-                'mining_xp': rock_type['mining_xp'],
-                'ore_type': rock_type['ore_type']
-            })
-            
+        # Add rock-specific properties if applicable
+        if tile_type == TileTypes.ROCK and position:
+            # Convert position to string format to match rock_data keys
+            pos_str = str(position)
+            if pos_str in TileTypes.rock_data:
+                rock_type = TileTypes.rock_data[pos_str]
+                properties.update(rock_type)
+        
         return properties
 
     @staticmethod

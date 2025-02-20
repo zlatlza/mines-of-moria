@@ -87,7 +87,7 @@ class Pickaxe(Item):
         super().__init__(
             name="Pickaxe",
             description="A sturdy pickaxe for mining",
-            icon_color=(139, 69, 19)  # Brown color
+            icon_color=(139, 69, 19)
         )
     
     def use(self, player, target_x, target_y):
@@ -97,12 +97,17 @@ class Pickaxe(Item):
         target_tile = player.map_data[target_y][target_x]
         tile_props = TileTypes.get_tile_properties(target_tile, (target_x, target_y))
         
+        print(f"Mining at position ({target_x}, {target_y})")  # Debug
+        print(f"Tile properties: {tile_props}")  # Debug
+        print(f"Rock data: {TileTypes.rock_data}")  # Debug
+        
         if tile_props.get('mineable', False):
             required_level = tile_props.get('mining_level', 0)
             if player.skills.mining_level >= required_level:
                 # Handle ore drops if it's a rock
                 if target_tile == TileTypes.ROCK:
                     ore_type = tile_props.get('ore_type')
+                    print(f"Found ore type: {ore_type}")  # Debug
                     
                     if ore_type:
                         # Create and add ore to inventory
