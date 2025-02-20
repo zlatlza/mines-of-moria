@@ -67,6 +67,7 @@ class Game:
         self.hover_font = pygame.font.Font(None, 24)
         self.hover_text = None
         self.hover_text_pos = None
+        self.show_hover_text = False  # New toggle variable
         
     def update_camera(self):
         # Center camera on player with some margin from edges
@@ -290,15 +291,22 @@ class Game:
                     self.sleeping = False
                     self.player.complete_sleep()
             elif not self.sleeping:
-                # Update hover text based on mouse position
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                self.update_hover_text(mouse_x, mouse_y)
-                
+                # Toggle hover text with left click
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Left click
+                        self.show_hover_text = not self.show_hover_text
                     if self.handle_gui_click(event.pos):
                         continue
                 elif event.type == pygame.KEYDOWN:
                     self.player.handle_input(event)
+            
+            # Only update hover text if it's enabled
+            if self.show_hover_text:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                self.update_hover_text(mouse_x, mouse_y)
+            else:
+                self.hover_text = None
+                self.hover_text_pos = None
     
     def run(self):
         clock = pygame.time.Clock()
