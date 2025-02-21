@@ -2,7 +2,7 @@ import pygame
 from tile_types import TileTypes
 
 class ItemRegistry:
-    _items = {}
+    _registered_items = {}
     
     @classmethod
     def register_item(cls, item_class):
@@ -10,28 +10,24 @@ class ItemRegistry:
         if item_class.__name__ in ['Ore', 'MetalBar']:
             # Don't register these base classes directly
             return item_class
-        cls._items[item_class.__name__] = item_class
+        cls._registered_items[item_class.__name__] = item_class
         return item_class
     
     @classmethod
     def register_item_type(cls, name, creator_func):
         """Register an item type with a custom name and creator function"""
-        cls._items[name] = creator_func
+        cls._registered_items[name] = creator_func
         
     @classmethod
     def create_item(cls, item_name):
-        if item_name not in cls._items:
-            raise ValueError(f"Unknown item: {item_name}")
-            
-        item_creator = cls._items[item_name]
-        if isinstance(item_creator, type):  # If it's a class
-            return item_creator()
-        return item_creator()  # If it's a lambda/function
+        if item_name in cls._registered_items:
+            return cls._registered_items[item_name]()
+        raise ValueError(f"Unknown item: {item_name}")
     
     @classmethod
     def get_all_items(cls):
-        # Return all registered items except base classes
-        return [name for name in cls._items.keys()]
+        """Return a list of all registered item names"""
+        return list(cls._registered_items.keys())
 
 class Item:
     def __init__(self, name, description, icon_color=(200, 200, 0)):

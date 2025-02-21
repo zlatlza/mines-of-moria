@@ -5,6 +5,7 @@ import tkinter as tk
 from map_data import Map
 from tile_types import TileTypes, RockTypes
 from items import ItemRegistry
+from sidebar import Sidebar
 
 class MapEditor:
     def __init__(self):
@@ -58,6 +59,15 @@ class MapEditor:
         # Add scroll offset for sidebar
         self.sidebar_scroll = 0
         self.max_scroll = 0
+        
+        # Create sidebar
+        sidebar_x = self.VIEWPORT_WIDTH * self.TILE_SIZE
+        self.sidebar = Sidebar(
+            x=sidebar_x,
+            width=self.SIDEBAR_WIDTH,
+            height=self.VIEWPORT_HEIGHT * self.TILE_SIZE,
+            tile_size=self.TILE_SIZE
+        )
         
     def show_message(self, text, duration=2000):
         self.message = text
@@ -218,99 +228,76 @@ class MapEditor:
     
     def handle_click(self, pos):
         x, y = pos
-        
-        # Check if click is in sidebar
-        if x >= self.VIEWPORT_WIDTH * self.TILE_SIZE:
-            self.handle_sidebar_click(pos)
-            return
-            
-        # Convert screen coordinates to world coordinates
-        grid_x, grid_y = self.screen_to_world(x, y)
-        
-        # Check if click is within map bounds
-        if (0 <= grid_x < self.MAP_WIDTH and 
-            0 <= grid_y < self.MAP_HEIGHT):
-            
-            # Place selected item/tile
-            if self.selected_category == "Tiles":
-                self.current_map.tiles[grid_y][grid_x] = self.selected_tile
-            elif self.selected_category == "Items":
-                if self.selected_item:
-                    # Remove any existing item at this position
-                    if (grid_x, grid_y) in self.current_map.items:
-                        del self.current_map.items[(grid_x, grid_y)]
-                    # Place new item
-                    self.current_map.items[(grid_x, grid_y)] = ItemRegistry.create_item(self.selected_item)
-            elif self.selected_category == "Spawn":
-                self.current_map.player_spawn = (grid_x, grid_y)
-            
-            if self.selected_tile == TileTypes.ROCK and hasattr(self, 'selected_rock_type'):
-                TileTypes.set_rock_type(grid_x, grid_y, self.selected_rock_type)
+        if x > self.VIEWPORT_WIDTH * self.TILE_SIZE:
+            # Sidebar click
+            self.handle_sidebar_click(x, y)
+        else:
+            # Map click
+            self.handle_map_click(x, y)
     
-    def handle_sidebar_click(self, pos):
-        x, y = pos
-        relative_y = y
-        
-        # Calculate button positions
-        y_pos = 10
-        y_pos += 115  # Skip map info and controls area
+    def handle_sidebar_click(self, x, y):
+        sidebar_x = self.VIEWPORT_WIDTH * self.TILE_SIZE
+        actual_y = y + self.sidebar_scroll  # Convert screen Y to scrolled Y
+        y_offset = 10
+        button_height = 30
         
         # Check category buttons
-        for category in ["Tiles", "Items", "Spawn"]:
-            button_rect = pygame.Rect(
-                self.VIEWPORT_WIDTH * self.TILE_SIZE + 10,
-                y_pos,
-                180, 30
-            )
-            if button_rect.collidepoint(pos):
+        for category in ["Tiles", "Items", "Rocks"]:
+            button_rect = pygame.Rect(sidebar_x + 10, y_offset, self.SIDEBAR_WIDTH - 20, button_height)
+            if button_rect.collidepoint(x, actual_y):
                 self.selected_category = category
                 return
-            y_pos += 40
+            y_offset += button_height + 5
         
-        # Check options for selected category
-        y_pos += 20
+        y_offset += 10
         
+        # Check items based on selected category
         if self.selected_category == "Tiles":
-            # Get all tile types dynamically
-            tile_types = [getattr(TileTypes, attr) for attr in dir(TileTypes) 
-                         if not attr.startswith('_') and isinstance(getattr(TileTypes, attr), int)]
-            
-            for tile_type in tile_types:
-                button_rect = pygame.Rect(
-                    self.VIEWPORT_WIDTH * self.TILE_SIZE + 10,
-                    y_pos,
-                    180, 30
-                )
-                if button_rect.collidepoint(pos):
-                    self.selected_tile = tile_type
+            for tile in [TileTypes.FLOOR, TileTypes.WALL, TileTypes.ROCK]:
+                button_rect = pygame.Rect(sidebar_x + 10, y_offset, self.SIDEBAR_WIDTH - 20, self.TILE_SIZE)
+                if button_rect.collidepoint(x, actual_y):
+                    self.selected_tile = tile
+                    self.selected_item = None
+                    self.selected_rock_type = None
                     return
-                y_pos += 40
+                y_offset += self.TILE_SIZE + 5
             
-            # Check rock type options if rock is selected
-            if self.selected_tile == TileTypes.ROCK:
-                y_pos += 10
-                for rock_name, rock_data in RockTypes.get_all_rocks().items():
-                    if not rock_name.startswith('_'):
-                        button_rect = pygame.Rect(
-                            self.VIEWPORT_WIDTH * self.TILE_SIZE + 20,
-                            y_pos,
-                            160, 30
-                        )
-                        if button_rect.collidepoint(pos):
-                            self.selected_rock_type = rock_data
-                            return
-                        y_pos += 40
-        
         elif self.selected_category == "Items":
-            for item_name in ItemRegistry.get_all_items():
-                button_rect = pygame.Rect(
-                    self.VIEWPORT_WIDTH * self.TILE_SIZE + 10,
-                    y_pos,
-                    180, 30
-                )
-                if button_rect.collidepoint(pos):
+            for item_name in self.available_items:
+                button_rect = pygame.Rect(sidebar_x + 10, y_offset, self.SIDEBAR_WIDTH - 20, self.TILE_SIZE)
+                if button_rect.collidepoint(x, actual_y):
                     self.selected_item = item_name
+                    self.selected_tile = None
+                    self.selected_rock_type = None
                     return
+                y_offset += self.TILE_SIZE + 5
+            
+        elif self.selected_category == "Rocks":
+            for rock_name in RockTypes.get_all_rocks():
+                button_rect = pygame.Rect(sidebar_x + 10, y_offset, self.SIDEBAR_WIDTH - 20, self.TILE_SIZE)
+                if button_rect.collidepoint(x, actual_y):
+                    self.selected_rock_type = rock_name
+                    self.selected_tile = TileTypes.ROCK
+                    self.selected_item = None
+                    return
+                y_offset += self.TILE_SIZE + 5
+    
+    def handle_map_click(self, x, y):
+        tile_x = x // self.TILE_SIZE + self.camera_x
+        tile_y = y // self.TILE_SIZE + self.camera_y
+        
+        if (0 <= tile_x < len(self.current_map.tiles[0]) and 
+            0 <= tile_y < len(self.current_map.tiles)):
+            
+            if self.sidebar.selected_tile is not None:
+                self.current_map.tiles[tile_y][tile_x] = self.sidebar.selected_tile
+                if self.sidebar.selected_rock_type:
+                    rock_data = getattr(RockTypes, self.sidebar.selected_rock_type)
+                    TileTypes.rock_data[(tile_x, tile_y)] = rock_data.copy()
+            elif self.sidebar.selected_item:
+                # Create the item and add it to the map
+                new_item = ItemRegistry.create_item(self.sidebar.selected_item)
+                self.current_map.items[(tile_x, tile_y)] = new_item
     
     def draw_map(self):
         # Calculate visible range
@@ -363,7 +350,19 @@ class MapEditor:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.handle_click(event.pos)
+                    mouse_x, mouse_y = event.pos
+                    
+                    # Handle sidebar interactions
+                    if mouse_x > self.VIEWPORT_WIDTH * self.TILE_SIZE:
+                        if event.button == 4:  # Mouse wheel up
+                            self.sidebar.handle_scroll(True)
+                        elif event.button == 5:  # Mouse wheel down
+                            self.sidebar.handle_scroll(False)
+                        elif event.button == 1:  # Left click
+                            self.sidebar.handle_click(mouse_x, mouse_y)
+                    # Handle map clicks
+                    elif event.button == 1:
+                        self.handle_click(event.pos)
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
                         try:
@@ -466,7 +465,7 @@ class MapEditor:
             
             # Draw map and sidebar
             self.draw_map()
-            self.draw_sidebar()
+            self.sidebar.draw(self.screen)
             
             pygame.display.flip()
             

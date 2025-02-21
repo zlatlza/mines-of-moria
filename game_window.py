@@ -70,17 +70,13 @@ class Game:
         self.show_hover_text = False  # New toggle variable
         
     def update_camera(self):
-        # Center camera on player with some margin from edges
-        margin_x = self.VIEWPORT_WIDTH // 3
-        margin_y = self.VIEWPORT_HEIGHT // 3
+        # Center camera on player
+        self.camera_x = self.player.grid_x - self.VIEWPORT_WIDTH // 2
+        self.camera_y = self.player.grid_y - self.VIEWPORT_HEIGHT // 2
         
-        # Calculate desired camera position
-        desired_x = self.player.grid_x - self.VIEWPORT_WIDTH // 2
-        desired_y = self.player.grid_y - self.VIEWPORT_HEIGHT // 2
-        
-        # Clamp camera to map bounds
-        self.camera_x = max(0, min(desired_x, self.current_map.width - self.VIEWPORT_WIDTH))
-        self.camera_y = max(0, min(desired_y, self.current_map.height - self.VIEWPORT_HEIGHT))
+        # Ensure camera doesn't go out of map bounds
+        self.camera_x = max(0, min(self.camera_x, len(self.current_map.tiles[0]) - self.VIEWPORT_WIDTH))
+        self.camera_y = max(0, min(self.camera_y, len(self.current_map.tiles) - self.VIEWPORT_HEIGHT))
     
     def world_to_screen(self, grid_x, grid_y):
         """Convert world coordinates to screen coordinates"""
@@ -89,50 +85,48 @@ class Game:
         return screen_x, screen_y
     
     def draw(self):
-        self.screen.fill((0, 0, 0))
+        # Fill with floor color instead of black
+        self.screen.fill(TileTypes.get_tile_properties(TileTypes.FLOOR)['color'])
         
-        # Update camera position
+        # Update camera to follow player
         self.update_camera()
         
-        # Calculate visible range
-        start_x = int(self.camera_x)
-        start_y = int(self.camera_y)
-        end_x = min(start_x + self.VIEWPORT_WIDTH, self.current_map.width)
-        end_y = min(start_y + self.VIEWPORT_HEIGHT, self.current_map.height)
-        
         # Draw visible tiles
-        for y in range(start_y, end_y):
-            for x in range(start_x, end_x):
-                map_x = x + self.camera_x
-                map_y = y + self.camera_y
+        for y in range(self.VIEWPORT_HEIGHT):
+            for x in range(self.VIEWPORT_WIDTH):
+                map_x = int(x + self.camera_x)
+                map_y = int(y + self.camera_y)
                 
+                # Draw floor color for out of bounds
+                screen_x = x * self.TILE_SIZE
+                screen_y = y * self.TILE_SIZE
+                
+                # Draw actual tiles if within map bounds
                 if (0 <= map_x < len(self.current_map.tiles[0]) and 
                     0 <= map_y < len(self.current_map.tiles)):
                     
                     tile = self.current_map.tiles[map_y][map_x]
-                    screen_x = x * self.TILE_SIZE
-                    screen_y = y * self.TILE_SIZE
-                    
                     tile_props = TileTypes.get_tile_properties(tile, (map_x, map_y))
                     
-                    # If tile has an image, use it
                     if tile_props.get('has_image', False) and tile in TileTypes.tile_images:
                         self.screen.blit(TileTypes.tile_images[tile], (screen_x, screen_y))
                     else:
-                        # Fall back to colored rectangle
                         color = tile_props.get('color', (100, 100, 100))
                         pygame.draw.rect(self.screen, color, 
-                                       (screen_x, screen_y, self.TILE_SIZE, self.TILE_SIZE))
-                
-        # Draw visible ground items
+                                      (screen_x, screen_y, self.TILE_SIZE, self.TILE_SIZE))
+        
+        # Draw items
         for pos, item in self.ground_items.items():
-            x, y = pos
-            if start_x <= x < end_x and start_y <= y < end_y:
-                screen_x, screen_y = self.world_to_screen(x, y)
+            screen_x = (pos[0] - self.camera_x) * self.TILE_SIZE
+            screen_y = (pos[1] - self.camera_y) * self.TILE_SIZE
+            
+            if (0 <= screen_x < self.VIEWPORT_WIDTH * self.TILE_SIZE and
+                0 <= screen_y < self.VIEWPORT_HEIGHT * self.TILE_SIZE):
                 item.draw(self.screen, screen_x, screen_y, self.TILE_SIZE)
         
         # Draw player
-        screen_x, screen_y = self.world_to_screen(self.player.grid_x, self.player.grid_y)
+        screen_x = (self.player.grid_x - self.camera_x) * self.TILE_SIZE
+        screen_y = (self.player.grid_y - self.camera_y) * self.TILE_SIZE
         self.player.draw_at_position(self.screen, screen_x, screen_y)
         
         # Draw GUI
@@ -334,18 +328,23 @@ class Game:
         self.ground_items = self.current_map.items
 
     def draw_map(self):
+        # Fill background with floor color to avoid any black
+        self.screen.fill(TileTypes.get_tile_properties(TileTypes.FLOOR)['color'])
+        
+        # Draw all visible tiles
         for y in range(self.VIEWPORT_HEIGHT):
             for x in range(self.VIEWPORT_WIDTH):
-                map_x = x + self.camera_x
-                map_y = y + self.camera_y
+                map_x = int(x + self.camera_x)
+                map_y = int(y + self.camera_y)
                 
+                # Ensure we're within map bounds
                 if (0 <= map_x < len(self.current_map.tiles[0]) and 
                     0 <= map_y < len(self.current_map.tiles)):
                     
-                    tile = self.current_map.tiles[map_y][map_x]
                     screen_x = x * self.TILE_SIZE
                     screen_y = y * self.TILE_SIZE
                     
+                    tile = self.current_map.tiles[map_y][map_x]
                     tile_props = TileTypes.get_tile_properties(tile, (map_x, map_y))
                     
                     # If tile has an image, use it
@@ -361,6 +360,8 @@ class Game:
         for pos, item in self.ground_items.items():
             screen_x = (pos[0] - self.camera_x) * self.TILE_SIZE
             screen_y = (pos[1] - self.camera_y) * self.TILE_SIZE
+            
+            # Check if item is in viewport
             if (0 <= screen_x < self.VIEWPORT_WIDTH * self.TILE_SIZE and
                 0 <= screen_y < self.VIEWPORT_HEIGHT * self.TILE_SIZE):
                 pygame.draw.rect(self.screen, item.icon_color,

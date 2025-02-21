@@ -19,10 +19,58 @@ class RockTypes:
     
     IRON = {
         'name': 'Iron Rock',
-        'color': (136, 84, 44),  # Iron brown
+        'color': (139, 0, 0),  # Maroon red
         'mining_level': 15,
         'mining_xp': 35,
         'ore_type': 'iron'
+    }
+    
+    SILVER = {
+        'name': 'Silver Rock',
+        'color': (192, 192, 192),  # Silver
+        'mining_level': 20,
+        'mining_xp': 40,
+        'ore_type': 'silver'
+    }
+    
+    COAL = {
+        'name': 'Coal Rock',
+        'color': (64, 64, 64),  # Brown gray
+        'mining_level': 30,
+        'mining_xp': 50,
+        'ore_type': 'coal'
+    }
+    
+    GOLD = {
+        'name': 'Gold Rock',
+        'color': (255, 215, 0),  # Gold
+        'mining_level': 40,
+        'mining_xp': 65,
+        'ore_type': 'gold'
+    }
+    
+    MITHRIL = {
+        'name': 'Mithril Rock',
+        'color': (0, 0, 139),  # Dark blue
+        'mining_level': 50,
+        'mining_xp': 80,
+        'ore_type': 'mithril'
+    }
+    
+    ADAMANT = {
+        'name': 'Adamant Rock',
+        'color': (0, 100, 0),  # Dark green
+        'mining_level': 60,
+        'mining_xp': 95,
+        'ore_type': 'adamant'
+    }
+    
+    RUNE = {
+        'name': 'Rune Rock',
+        'color': (0, 139, 139),  # Dark cyan
+        'mining_level': 70,
+        'mining_xp': 125,
+        'ore_type': 'rune'
     }
     
     @classmethod
