@@ -20,34 +20,38 @@ class Inventory:
                 return True
         return False
         
-    def handle_click(self, mouse_pos):
+    def handle_click(self, pos):
         if not self.is_open:
             return False
-            
+        
+        mouse_x, mouse_y = pos
         padding = 10
         slot_size = 40
         slots_per_row = 4
         
-        # Calculate inventory position
+        # Calculate inventory window dimensions
         width = (slot_size * slots_per_row) + (padding * 2)
         height = (slot_size * (self.size // slots_per_row)) + (padding * 2)
-        screen_width = pygame.display.get_surface().get_width()
-        screen_height = pygame.display.get_surface().get_height()
-        inv_x = (screen_width - width) // 2
-        inv_y = (screen_height - height) // 2
+        window_x = (pygame.display.get_surface().get_width() - width) // 2
+        window_y = (pygame.display.get_surface().get_height() - height) // 2
         
-        # Check slot clicks
-        for i in range(self.size):
-            slot_x = inv_x + padding + (i % slots_per_row) * slot_size
-            slot_y = inv_y + padding + (i // slots_per_row) * slot_size
-            slot_rect = pygame.Rect(slot_x, slot_y, slot_size, slot_size)
+        # Check if click is within inventory window
+        if (window_x <= mouse_x <= window_x + width and 
+            window_y <= mouse_y <= window_y + height):
             
-            if slot_rect.collidepoint(mouse_pos) and self.items[i]:
-                if pygame.mouse.get_pressed()[0]:  # Left click to equip
-                    self.items[i].equip(self.player)
-                elif pygame.mouse.get_pressed()[2]:  # Right click to drop
-                    self.drop_item(i)
-                return True
+            # Calculate which slot was clicked
+            rel_x = mouse_x - (window_x + padding)
+            rel_y = mouse_y - (window_y + padding)
+            
+            slot_x = rel_x // slot_size
+            slot_y = rel_y // slot_size
+            
+            if 0 <= slot_x < slots_per_row and 0 <= rel_x % slot_size < slot_size - 2:
+                slot_index = slot_y * slots_per_row + slot_x
+                if 0 <= slot_index < self.size:
+                    if self.items[slot_index]:
+                        self.items[slot_index].equip(self.player)
+                    return True
                 
         return False
         

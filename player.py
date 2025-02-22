@@ -14,7 +14,17 @@ class Player:
         self.grid_y = 1
         self.size = tile_size - 10  # Slightly smaller than tile
         self.color = (255, 0, 0)
-        self.equipped_item = None
+        
+        # Equipment slots
+        self.equipment = {
+            'head': None,
+            'body': None,
+            'main_hand': None,
+            'off_hand': None,
+            'legs': None,
+            'feet': None
+        }
+        
         self.inventory = Inventory()
         self.inventory.player = self  # Add reference to player in inventory
         self.health = 100
@@ -23,6 +33,16 @@ class Player:
         self.smelting_timer = 0
         self.smelting_in_progress = False
         self.smelting_ores = None  # Will store (copper_slot, tin_slot) while smelting
+
+    @property
+    def equipped_item(self):
+        """For backwards compatibility - returns main hand item"""
+        return self.equipment['main_hand']
+    
+    @equipped_item.setter
+    def equipped_item(self, item):
+        """For backwards compatibility - sets main hand item"""
+        self.equipment['main_hand'] = item
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:

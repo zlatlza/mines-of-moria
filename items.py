@@ -35,7 +35,8 @@ class Item:
         self.description = description
         self.icon_color = icon_color
         self.equipped = False
-        self.equippable = True  # Add default equippable property
+        self.equippable = True
+        self.equipment_slot = None  # Will be set by child classes
         
     def draw(self, screen, x, y, size):
         pygame.draw.rect(screen, self.icon_color, 
@@ -45,18 +46,25 @@ class Item:
         pass
         
     def equip(self, player):
-        if not self.equippable:
+        if not self.equippable or not self.equipment_slot:
             player.game.add_message(f"{self.name} cannot be equipped")
             return
             
-        if self.equipped:
+        # Unequip current item in that slot if any
+        current_item = player.equipment[self.equipment_slot]
+        if current_item:
+            current_item.equipped = False
+            
+        # Equip new item
+        self.equipped = True
+        player.equipment[self.equipment_slot] = self
+        player.game.add_message(f"{self.name} equipped to {self.equipment_slot}")
+
+    def unequip(self, player):
+        if self.equipped and self.equipment_slot:
             self.equipped = False
-            player.equipped_item = None
-            player.game.add_message(f"{self.name} unequipped")
-        else:
-            self.equipped = True
-            player.equipped_item = self
-            player.game.add_message(f"{self.name} equipped")
+            player.equipment[self.equipment_slot] = None
+            player.game.add_message(f"{self.name} unequipped from {self.equipment_slot}")
 
 # Base classes (won't be registered directly)
 class Ore(Item):
@@ -85,6 +93,7 @@ class Pickaxe(Item):
             description="A sturdy pickaxe for mining",
             icon_color=(139, 69, 19)
         )
+        self.equipment_slot = 'main_hand'
     
     def use(self, player, target_x, target_y):
         if not self.equipped:

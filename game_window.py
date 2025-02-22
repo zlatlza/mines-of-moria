@@ -241,40 +241,42 @@ class Game:
         if self.player.skills.is_open:
             self.player.skills.draw(self.screen)
     
-    def handle_gui_click(self, pos):
-        # Try to handle inventory click first
-        if self.player.inventory.handle_click(pos):
-            return True
-        
-        # If click wasn't in inventory, close it
-        self.player.inventory.is_open = False
-        
-        # Handle GUI buttons
-        gui_y = self.VIEWPORT_HEIGHT * self.TILE_SIZE
-        
-        # Inventory button
-        inv_button_rect = pygame.Rect(
-            self.VIEWPORT_WIDTH * self.TILE_SIZE - 220,
-            gui_y + 10,
-            self.BUTTON_WIDTH,
-            self.BUTTON_HEIGHT
-        )
-        if inv_button_rect.collidepoint(pos):
-            self.player.inventory.toggle()
-            return True
-        
-        # Skills button
-        skills_button_rect = pygame.Rect(
-            self.VIEWPORT_WIDTH * self.TILE_SIZE - 110,
-            gui_y + 10,
-            self.BUTTON_WIDTH,
-            self.BUTTON_HEIGHT
-        )
-        if skills_button_rect.collidepoint(pos):
-            self.player.skills.toggle()
+    def handle_click(self, pos, button):
+        # If inventory is open, let it handle clicks first
+        if self.player.inventory.is_open:
+            # Let inventory handle the click
+            if self.player.inventory.handle_click(pos):
+                return True
+            # If click wasn't on inventory, close it
+            self.player.inventory.is_open = False
             return True
             
-        return False
+        mouse_x, mouse_y = pos
+        tile_x = mouse_x // self.TILE_SIZE + self.camera_x
+        tile_y = mouse_y // self.TILE_SIZE + self.camera_y
+        
+        # Only handle map clicks if inventory is closed
+        if (0 <= tile_x < len(self.current_map.tiles[0]) and 
+            0 <= tile_y < len(self.current_map.tiles)):
+            
+            # Handle interaction if player has equipped item (left click only)
+            if button == 1 and self.player.equipped_item:
+                self.player.equipped_item.use(self.player, tile_x, tile_y)
+            
+            # Show tooltip on right click
+            elif button == 3:
+                tile = self.current_map.tiles[tile_y][tile_x]
+                tile_props = TileTypes.get_tile_properties(tile, (tile_x, tile_y))
+                
+                # Show tile info
+                info = f"Tile: {tile_props.get('name', 'Unknown')}"
+                if tile == TileTypes.ROCK and (tile_x, tile_y) in TileTypes.rock_data:
+                    rock_data = TileTypes.rock_data[(tile_x, tile_y)]
+                    info += f" ({rock_data['name']}, Level {rock_data['mining_level']})"
+                
+                self.add_message(info)
+        
+        return True
     
     def handle_events(self):
         for event in pygame.event.get():
@@ -285,11 +287,11 @@ class Game:
                     self.sleeping = False
                     self.player.complete_sleep()
             elif not self.sleeping:
-                # Toggle hover text with left click
+                # Toggle hover text with right click instead of left
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:  # Left click
+                    if event.button == 3:  # Right click
                         self.show_hover_text = not self.show_hover_text
-                    if self.handle_gui_click(event.pos):
+                    if self.handle_click(event.pos, event.button):
                         continue
                 elif event.type == pygame.KEYDOWN:
                     self.player.handle_input(event)
@@ -378,19 +380,24 @@ class Game:
             0 <= tile_y < len(self.current_map.tiles) and
             mouse_y < self.VIEWPORT_HEIGHT * self.TILE_SIZE):  # Not in GUI area
             
-            tile = self.current_map.tiles[tile_y][tile_x]
-            tile_props = TileTypes.get_tile_properties(tile, (tile_x, tile_y))
+            # Check for items first (they're on top)
+            pos = (tile_x, tile_y)
+            if pos in self.ground_items:
+                item = self.ground_items[pos]
+                self.hover_text = f"Item: {item.name}"
+            else:
+                # If no item, show tile info
+                tile = self.current_map.tiles[tile_y][tile_x]
+                tile_props = TileTypes.get_tile_properties(tile, (tile_x, tile_y))
+                self.hover_text = tile_props.get('name', '')
             
-            # Get tile name from properties
-            self.hover_text = tile_props.get('name', '')
             # Position text above the tile
             self.hover_text_pos = (
                 mouse_x,
                 mouse_y - 20  # 20 pixels above mouse
             )
         else:
-            self.hover_text = None
-            self.hover_text_pos = None
+            self.hover_text = ''
 
 if __name__ == "__main__":
     game = Game()
