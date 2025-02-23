@@ -59,12 +59,13 @@ class Player:
                 target_tile = self.map_data[target_y][target_x]
                 tile_props = TileTypes.get_tile_properties(target_tile)
                 
-                # Check for bed interaction
-                if tile_props.get('interactable', False) and target_tile == TileTypes.BED:
-                    self.use_bed()
-                # If facing a furnace, try smelting regardless of equipped item
+                if tile_props.get('craftable', False):
+                    self.try_crafting()
                 elif tile_props.get('smeltable', False):
                     self.try_smelting()
+                # Check for bed interaction
+                elif tile_props.get('interactable', False) and target_tile == TileTypes.BED:
+                    self.use_bed()
                 # Otherwise, if we have a pickaxe equipped, try mining
                 elif self.equipped_item and self.equipped_item.name == "Pickaxe":
                     self.use_equipped_item()
@@ -251,12 +252,31 @@ class Player:
         return tile_props.get('walkable', False)
 
     def check_for_items(self):
-        current_pos = (self.grid_x, self.grid_y)
-        if current_pos in self.game.ground_items:
-            item = self.game.ground_items[current_pos]
-            if self.inventory.add_item(item):
-                del self.game.ground_items[current_pos]
-                self.game.add_message(f"Picked up {item.name}")
+        pos = (self.grid_x, self.grid_y)
+        if pos in self.game.ground_items:
+            items = self.game.ground_items[pos]
+            
+            # Convert single item to list if needed (backwards compatibility)
+            if not isinstance(items, list):
+                items = [items]
+            
+            # Try to pick up each item in the stack
+            items_to_remove = []
+            for item in items:
+                if self.inventory.add_item(item):
+                    items_to_remove.append(item)
+                    self.game.add_message(f"Picked up {item.name}")
+                else:
+                    self.game.add_message("Inventory full!")
+                    break
+            
+            # Remove picked up items from ground
+            if len(items_to_remove) == len(items):
+                # All items picked up, remove the position entirely
+                del self.game.ground_items[pos]
+            else:
+                # Only some items picked up, update the list
+                self.game.ground_items[pos] = [item for item in items if item not in items_to_remove]
 
     def use_bed(self):
         """Called when player interacts with bed"""
@@ -279,3 +299,30 @@ class Player:
         self.equipped_item = equipped_item
         
         self.game.add_message("You wake up feeling refreshed!")
+
+    def try_crafting(self):
+        # First check if player has a hammer
+        has_hammer = False
+        for item in self.inventory.items:
+            if item and item.name == "Hammer":
+                has_hammer = True
+                break
+        
+        if not has_hammer:
+            self.game.add_message("You need a Hammer to work the metal!")
+            return
+
+        # Check for metal bars in inventory
+        available_bars = {}
+        for i, item in enumerate(self.inventory.items):
+            if item and item.name.endswith("Bar"):
+                material = item.name.split()[0].lower()
+                if material not in available_bars:
+                    available_bars[material] = []
+                available_bars[material].append(i)
+        
+        if available_bars:
+            self.game.crafting_menu.is_open = True
+            self.game.crafting_menu.available_bars = available_bars
+        else:
+            self.game.add_message("You need metal bars to craft items")

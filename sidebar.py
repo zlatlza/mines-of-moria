@@ -59,12 +59,9 @@ class Sidebar:
         # Check content buttons based on category
         if self.selected_category == "Tiles":
             all_tiles = [
-                TileTypes.FLOOR,
-                TileTypes.WALL,
-                TileTypes.ROCK,
-                TileTypes.DEPLETED_ROCK,
-                TileTypes.FURNACE,
-                TileTypes.BED
+                getattr(TileTypes, attr) for attr in dir(TileTypes) 
+                if not attr.startswith('_') and 
+                isinstance(getattr(TileTypes, attr), int)
             ]
             
             for tile in all_tiles:
@@ -143,14 +140,11 @@ class Sidebar:
         
         # Draw content based on selected category
         if self.selected_category == "Tiles":
-            # Get all tile types from TileTypes
+            # Get all tile types dynamically
             all_tiles = [
-                TileTypes.FLOOR,
-                TileTypes.WALL,
-                TileTypes.ROCK,
-                TileTypes.DEPLETED_ROCK,
-                TileTypes.FURNACE,
-                TileTypes.BED
+                getattr(TileTypes, attr) for attr in dir(TileTypes) 
+                if not attr.startswith('_') and 
+                isinstance(getattr(TileTypes, attr), int)
             ]
             
             for tile in all_tiles:

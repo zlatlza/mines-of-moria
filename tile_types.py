@@ -86,6 +86,7 @@ class TileTypes:
     DEPLETED_ROCK = 3  # New tile type for mined rocks
     FURNACE = 4  # New furnace tile
     BED = 5  # New bed tile
+    ANVIL = 6  # New anvil tile type
     
     # Dictionary to store rock data for each tile position
     rock_data = {}  # Format: {(x, y): RockType}
@@ -153,6 +154,14 @@ class TileTypes:
                 'mineable': False,
                 'interactable': True,
                 'resettable': False  # Beds don't reset
+            },
+            TileTypes.ANVIL: {
+                'name': 'Anvil',
+                'color': (120, 120, 120),  # Gray color for anvil
+                'walkable': False,
+                'mineable': False,
+                'resettable': False,
+                'craftable': True  # Add this property
             }
         }
         

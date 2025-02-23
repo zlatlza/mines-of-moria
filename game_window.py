@@ -68,6 +68,11 @@ class Game:
         self.hover_text = None
         self.hover_text_pos = None
         self.show_hover_text = False  # New toggle variable
+        self.show_tooltips = False  # Add this line to track tooltip state
+        
+        # Add crafting menu
+        from crafting_menu import CraftingMenu
+        self.crafting_menu = CraftingMenu()
         
     def update_camera(self):
         # Center camera on player
@@ -91,13 +96,39 @@ class Game:
         # Update camera to follow player
         self.update_camera()
         
-        # Draw visible tiles
+        # Draw map and items
+        self._draw_map_tiles()
+        self._draw_ground_items()
+        
+        # Draw player
+        screen_x = (self.player.grid_x - self.camera_x) * self.TILE_SIZE
+        screen_y = (self.player.grid_y - self.camera_y) * self.TILE_SIZE
+        self.player.draw_at_position(self.screen, screen_x, screen_y)
+        
+        # Draw GUI
+        self.draw_gui()
+        
+        # Draw sleep animation if active
+        if self.sleeping:
+            self._draw_sleep_animation()
+        
+        # Draw hover text if active
+        if self.hover_text and self.hover_text_pos:
+            self._draw_hover_text()
+        
+        # Draw crafting menu if open
+        if hasattr(self, 'crafting_menu') and self.crafting_menu.is_open:
+            self.crafting_menu.draw(self.screen, self.player.skills.smithing_level)
+        
+        pygame.display.flip()
+    
+    def _draw_map_tiles(self):
+        """Draw the visible map tiles"""
         for y in range(self.VIEWPORT_HEIGHT):
             for x in range(self.VIEWPORT_WIDTH):
                 map_x = int(x + self.camera_x)
                 map_y = int(y + self.camera_y)
                 
-                # Draw floor color for out of bounds
                 screen_x = x * self.TILE_SIZE
                 screen_y = y * self.TILE_SIZE
                 
@@ -114,68 +145,65 @@ class Game:
                         color = tile_props.get('color', (100, 100, 100))
                         pygame.draw.rect(self.screen, color, 
                                       (screen_x, screen_y, self.TILE_SIZE, self.TILE_SIZE))
-        
-        # Draw items
-        for pos, item in self.ground_items.items():
+    
+    def _draw_ground_items(self):
+        """Draw items on the ground"""
+        for pos, items in self.ground_items.items():
             screen_x = (pos[0] - self.camera_x) * self.TILE_SIZE
             screen_y = (pos[1] - self.camera_y) * self.TILE_SIZE
             
             if (0 <= screen_x < self.VIEWPORT_WIDTH * self.TILE_SIZE and
                 0 <= screen_y < self.VIEWPORT_HEIGHT * self.TILE_SIZE):
-                item.draw(self.screen, screen_x, screen_y, self.TILE_SIZE)
+                # If it's a list, draw the last item in the stack
+                if isinstance(items, list) and items:
+                    items[-1].draw(self.screen, screen_x, screen_y, self.TILE_SIZE)
+                # Handle old format (single item)
+                elif not isinstance(items, list):
+                    items.draw(self.screen, screen_x, screen_y, self.TILE_SIZE)
+    
+    def _draw_hover_text(self):
+        """Draw hover text with background"""
+        text_surface = self.hover_font.render(self.hover_text, True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=self.hover_text_pos)
         
-        # Draw player
-        screen_x = (self.player.grid_x - self.camera_x) * self.TILE_SIZE
-        screen_y = (self.player.grid_y - self.camera_y) * self.TILE_SIZE
-        self.player.draw_at_position(self.screen, screen_x, screen_y)
+        # Draw background for better visibility
+        padding = 4
+        bg_rect = text_rect.inflate(padding * 2, padding * 2)
+        pygame.draw.rect(self.screen, (0, 0, 0), bg_rect)
         
-        # Draw GUI
-        self.draw_gui()
+        # Draw text
+        self.screen.blit(text_surface, text_rect)
+    
+    def _draw_sleep_animation(self):
+        """Draw the sleep animation overlay"""
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.sleep_start_time
         
-        if self.sleeping:
-            current_time = pygame.time.get_ticks()
-            elapsed = current_time - self.sleep_start_time
+        if elapsed < self.sleep_duration:
+            # Fade to black during sleep animation
+            self.fade_alpha = min(255, (elapsed / self.sleep_duration) * 255)
+        else:
+            self.fade_alpha = 255
+        
+        # Draw sleep overlay
+        self.sleep_surface.set_alpha(self.fade_alpha)
+        self.screen.blit(self.sleep_surface, (0, 0))
+        
+        # Draw "Zzzzz" text
+        if self.fade_alpha > 128:  # Show text when mostly faded
+            font = pygame.font.Font(None, 72)
+            text = font.render("Zzzzz...", True, (255, 255, 255))
+            text_rect = text.get_rect(center=(self.VIEWPORT_WIDTH * self.TILE_SIZE // 2,
+                                            self.VIEWPORT_HEIGHT * self.TILE_SIZE // 2))
+            self.screen.blit(text, text_rect)
             
-            if elapsed < self.sleep_duration:
-                # Fade to black during sleep animation
-                self.fade_alpha = min(255, (elapsed / self.sleep_duration) * 255)
-            else:
-                self.fade_alpha = 255
-                
-            # Draw sleep overlay
-            self.sleep_surface.set_alpha(self.fade_alpha)
-            self.screen.blit(self.sleep_surface, (0, 0))
-            
-            # Draw "Zzzzz" text
-            if self.fade_alpha > 128:  # Show text when mostly faded
-                font = pygame.font.Font(None, 72)
-                text = font.render("Zzzzz...", True, (255, 255, 255))
-                text_rect = text.get_rect(center=(self.VIEWPORT_WIDTH * self.TILE_SIZE // 2,
-                                                self.VIEWPORT_HEIGHT * self.TILE_SIZE // 2))
-                self.screen.blit(text, text_rect)
-                
-                if elapsed >= self.sleep_duration:
-                    # Show wake up prompt
-                    font = pygame.font.Font(None, 36)
-                    prompt = font.render("Click or press any key to wake up", True, (200, 200, 200))
-                    prompt_rect = prompt.get_rect(center=(self.VIEWPORT_WIDTH * self.TILE_SIZE // 2,
-                                                        text_rect.bottom + 40))
-                    self.screen.blit(prompt, prompt_rect)
-        
-        # Draw hover text if it exists
-        if self.hover_text and self.hover_text_pos:
-            text_surface = self.hover_font.render(self.hover_text, True, (255, 255, 255))
-            text_rect = text_surface.get_rect(center=self.hover_text_pos)
-            
-            # Draw background for better visibility
-            padding = 4
-            bg_rect = text_rect.inflate(padding * 2, padding * 2)
-            pygame.draw.rect(self.screen, (0, 0, 0), bg_rect)
-            
-            # Draw text
-            self.screen.blit(text_surface, text_rect)
-        
-        pygame.display.flip()
+            if elapsed >= self.sleep_duration:
+                # Show wake up prompt
+                font = pygame.font.Font(None, 36)
+                prompt = font.render("Click or press any key to wake up", True, (200, 200, 200))
+                prompt_rect = prompt.get_rect(center=(self.VIEWPORT_WIDTH * self.TILE_SIZE // 2,
+                                                    text_rect.bottom + 40))
+                self.screen.blit(prompt, prompt_rect)
     
     def add_message(self, text):
         # Add new message with timestamp
@@ -245,7 +273,7 @@ class Game:
         # If inventory is open, let it handle clicks first
         if self.player.inventory.is_open:
             # Let inventory handle the click
-            if self.player.inventory.handle_click(pos):
+            if self.player.inventory.handle_click(pos, button):
                 return True
             # If click wasn't on inventory, close it
             self.player.inventory.is_open = False
@@ -276,6 +304,11 @@ class Game:
                 
                 self.add_message(info)
         
+        # Handle crafting menu clicks
+        if hasattr(self, 'crafting_menu') and self.crafting_menu.is_open:
+            if self.crafting_menu.handle_click(pos, self.player):
+                return True
+        
         return True
     
     def handle_events(self):
@@ -287,21 +320,20 @@ class Game:
                     self.sleeping = False
                     self.player.complete_sleep()
             elif not self.sleeping:
-                # Toggle hover text with right click instead of left
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 3:  # Right click
-                        self.show_hover_text = not self.show_hover_text
+                        self.show_tooltips = not self.show_tooltips
                     if self.handle_click(event.pos, event.button):
                         continue
                 elif event.type == pygame.KEYDOWN:
                     self.player.handle_input(event)
             
-            # Only update hover text if it's enabled
-            if self.show_hover_text:
+            # Only update hover text if tooltips are enabled
+            if self.show_tooltips:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
                 self.update_hover_text(mouse_x, mouse_y)
             else:
-                self.hover_text = None
+                self.hover_text = ''
                 self.hover_text_pos = None
     
     def run(self):
@@ -329,47 +361,6 @@ class Game:
         """Update ground_items to match map's items"""
         self.ground_items = self.current_map.items
 
-    def draw_map(self):
-        # Fill background with floor color to avoid any black
-        self.screen.fill(TileTypes.get_tile_properties(TileTypes.FLOOR)['color'])
-        
-        # Draw all visible tiles
-        for y in range(self.VIEWPORT_HEIGHT):
-            for x in range(self.VIEWPORT_WIDTH):
-                map_x = int(x + self.camera_x)
-                map_y = int(y + self.camera_y)
-                
-                # Ensure we're within map bounds
-                if (0 <= map_x < len(self.current_map.tiles[0]) and 
-                    0 <= map_y < len(self.current_map.tiles)):
-                    
-                    screen_x = x * self.TILE_SIZE
-                    screen_y = y * self.TILE_SIZE
-                    
-                    tile = self.current_map.tiles[map_y][map_x]
-                    tile_props = TileTypes.get_tile_properties(tile, (map_x, map_y))
-                    
-                    # If tile has an image, use it
-                    if tile_props.get('has_image', False) and tile in TileTypes.tile_images:
-                        self.screen.blit(TileTypes.tile_images[tile], (screen_x, screen_y))
-                    else:
-                        # Fall back to colored rectangle
-                        color = tile_props.get('color', (100, 100, 100))
-                        pygame.draw.rect(self.screen, color, 
-                                       (screen_x, screen_y, self.TILE_SIZE, self.TILE_SIZE))
-        
-        # Draw items
-        for pos, item in self.ground_items.items():
-            screen_x = (pos[0] - self.camera_x) * self.TILE_SIZE
-            screen_y = (pos[1] - self.camera_y) * self.TILE_SIZE
-            
-            # Check if item is in viewport
-            if (0 <= screen_x < self.VIEWPORT_WIDTH * self.TILE_SIZE and
-                0 <= screen_y < self.VIEWPORT_HEIGHT * self.TILE_SIZE):
-                pygame.draw.rect(self.screen, item.icon_color,
-                               (screen_x + 10, screen_y + 10,
-                                self.TILE_SIZE - 20, self.TILE_SIZE - 20))
-
     def update_hover_text(self, mouse_x, mouse_y):
         # Convert mouse position to tile coordinates
         tile_x = mouse_x // self.TILE_SIZE + self.camera_x
@@ -383,8 +374,17 @@ class Game:
             # Check for items first (they're on top)
             pos = (tile_x, tile_y)
             if pos in self.ground_items:
-                item = self.ground_items[pos]
-                self.hover_text = f"Item: {item.name}"
+                items = self.ground_items[pos]
+                # Handle both single items and lists of items
+                if isinstance(items, list):
+                    if len(items) == 1:
+                        self.hover_text = f"Item: {items[0].name}"
+                    else:
+                        item_names = [item.name for item in items]
+                        self.hover_text = f"Items: {', '.join(item_names)}"
+                else:
+                    # Single item (old format)
+                    self.hover_text = f"Item: {items.name}"
             else:
                 # If no item, show tile info
                 tile = self.current_map.tiles[tile_y][tile_x]

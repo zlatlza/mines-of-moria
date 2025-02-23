@@ -20,7 +20,7 @@ class Inventory:
                 return True
         return False
         
-    def handle_click(self, pos):
+    def handle_click(self, pos, button):
         if not self.is_open:
             return False
         
@@ -48,20 +48,32 @@ class Inventory:
             
             if 0 <= slot_x < slots_per_row and 0 <= rel_x % slot_size < slot_size - 2:
                 slot_index = slot_y * slots_per_row + slot_x
-                if 0 <= slot_index < self.size:
-                    if self.items[slot_index]:
+                if 0 <= slot_index < self.size and self.items[slot_index]:
+                    if button == 1:  # Left click to equip
                         self.items[slot_index].equip(self.player)
+                    elif button == 3:  # Right click to drop
+                        self.drop_item(slot_index)
                     return True
                 
         return False
         
     def drop_item(self, slot_index):
         dropped_item = self.items[slot_index]
-        self.items[slot_index] = None
-        if dropped_item.equipped:
-            dropped_item.equip(self.player)
-        self.player.game.ground_items[(self.player.grid_x, self.player.grid_y)] = dropped_item
-        print(f"Dropped {dropped_item.name}")
+        if dropped_item:
+            self.items[slot_index] = None
+            if dropped_item.equipped:
+                dropped_item.equip(self.player)  # Unequip if equipped
+            
+            # Get player's position
+            pos = (self.player.grid_x, self.player.grid_y)
+            
+            # Initialize list for position if it doesn't exist
+            if pos not in self.player.game.ground_items:
+                self.player.game.ground_items[pos] = []
+            
+            # Add item to the stack
+            self.player.game.ground_items[pos].append(dropped_item)
+            print(f"Dropped {dropped_item.name}")
         
     def draw(self, screen):
         if not self.is_open:
@@ -113,11 +125,10 @@ class Inventory:
         # Create tooltip text
         name_text = font.render(self.tooltip_item.name, True, (255, 255, 255))
         desc_text = font.render(self.tooltip_item.description, True, (255, 255, 255))
-        drop_text = font.render("Right click again to drop", True, (255, 200, 200))
         
         # Calculate tooltip dimensions
-        width = max(name_text.get_width(), desc_text.get_width(), drop_text.get_width()) + padding * 2
-        height = name_text.get_height() + desc_text.get_height() + drop_text.get_height() + padding * 4
+        width = max(name_text.get_width(), desc_text.get_width()) + padding * 2
+        height = name_text.get_height() + desc_text.get_height() + padding * 3
         
         # Position tooltip near mouse but ensure it stays on screen
         x = min(self.tooltip_pos[0], screen.get_width() - width)
@@ -129,18 +140,4 @@ class Inventory:
         
         # Draw text
         screen.blit(name_text, (x + padding, y + padding))
-        screen.blit(desc_text, (x + padding, y + name_text.get_height() + padding * 2))
-        screen.blit(drop_text, (x + padding, y + name_text.get_height() + desc_text.get_height() + padding * 3))
-        
-        # Check for second right click to drop
-        if pygame.mouse.get_pressed()[2]:
-            slot_index = self.items.index(self.tooltip_item)
-            dropped_item = self.items[slot_index]
-            self.items[slot_index] = None
-            if dropped_item.equipped:
-                dropped_item.equip(self.player)  # Unequip if equipped
-            
-            # Drop item at player's position
-            self.player.game.ground_items[(self.player.grid_x, self.player.grid_y)] = dropped_item
-            print(f"Dropped {dropped_item.name}")
-            self.show_tooltip = False 
+        screen.blit(desc_text, (x + padding, y + name_text.get_height() + padding * 2)) 

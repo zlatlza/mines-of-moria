@@ -132,6 +132,16 @@ class Pickaxe(Item):
                     # Normal mining behavior for non-rock tiles
                     player.map_data[target_y][target_x] = TileTypes.FLOOR
 
+@ItemRegistry.register_item
+class Hammer(Item):
+    def __init__(self):
+        super().__init__(
+            name="Hammer",
+            description="A smithing hammer for metalworking",
+            icon_color=(169, 169, 169)  # Steel gray color
+        )
+        self.equippable = False  # Hammer cannot be equipped
+
 # Register specific items with their creation functions
 ItemRegistry.register_item_type("copper_ore", 
     lambda: Ore("Copper", (184, 115, 51)))
@@ -139,6 +149,28 @@ ItemRegistry.register_item_type("tin_ore",
     lambda: Ore("Tin", (211, 212, 213)))
 ItemRegistry.register_item_type("bronze_bar", 
     lambda: MetalBar("Bronze", (205, 127, 50)))
+
+# Register craftable items
+ItemRegistry.register_item_type("bronze_dagger", 
+    lambda: Item("Bronze Dagger", "A small bronze dagger", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_med_helm", 
+    lambda: Item("Bronze Med Helm", "A medium bronze helmet", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_sword", 
+    lambda: Item("Bronze Sword", "A bronze sword", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_shield", 
+    lambda: Item("Bronze Shield", "A bronze shield", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_full_helm", 
+    lambda: Item("Bronze Full Helm", "A full bronze helmet", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_plate_legs", 
+    lambda: Item("Bronze Plate Legs", "Bronze leg armor", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_long_sword", 
+    lambda: Item("Bronze Long Sword", "A long bronze sword", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_scimitar", 
+    lambda: Item("Bronze Scimitar", "A curved bronze sword", (205, 127, 50)))
+ItemRegistry.register_item_type("bronze_plate_body", 
+    lambda: Item("Bronze Plate Body", "Bronze body armor", (205, 127, 50)))
+ItemRegistry.register_item_type("iron_dagger", 
+    lambda: Item("Iron Dagger", "A small iron dagger", (192, 192, 192)))
 
 class Player:
     def handle_input(self, event):
