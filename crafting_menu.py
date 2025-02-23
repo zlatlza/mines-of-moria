@@ -1,4 +1,5 @@
 import pygame
+from items import ItemRegistry
 
 class CraftingRecipe:
     def __init__(self, name, level, material, bars_required):
@@ -6,10 +7,12 @@ class CraftingRecipe:
         self.level = level
         self.material = material
         self.bars_required = bars_required
+        self.rect = None  # Store rectangle for hover detection
 
 class CraftingMenu:
     def __init__(self):
         self.is_open = False
+        self.hovered_recipe = None
         self.recipes = {
             "bronze": [
                 CraftingRecipe("Bronze Dagger", 1, "bronze", 1),
@@ -41,6 +44,10 @@ class CraftingMenu:
         # Draw background
         pygame.draw.rect(screen, (100, 100, 100), (x, y, width, height))
         
+        # Get mouse position for hover effect
+        mouse_pos = pygame.mouse.get_pos()
+        self.hovered_recipe = None
+        
         # Draw available recipes
         font = pygame.font.Font(None, 24)
         y_offset = y + padding
@@ -48,39 +55,29 @@ class CraftingMenu:
         for material, recipes in self.recipes.items():
             for recipe in recipes:
                 if smithing_level >= recipe.level:
+                    # Create rectangle for hover detection
+                    recipe.rect = pygame.Rect(x + padding, y_offset, width - (padding * 2), 25)
+                    
+                    # Check if mouse is hovering over this recipe
+                    if recipe.rect.collidepoint(mouse_pos):
+                        self.hovered_recipe = recipe
+                        # Draw hover highlight
+                        pygame.draw.rect(screen, (150, 150, 150), recipe.rect)
+                    
                     text = f"{recipe.name} (Level {recipe.level}, {recipe.bars_required} bars)"
                     text_surface = font.render(text, True, (255, 255, 255))
                     screen.blit(text_surface, (x + padding, y_offset))
-                    y_offset += 30 
+                    y_offset += 30
 
     def handle_click(self, pos, player):
         if not self.is_open:
             return False
         
-        x, y = pos
-        padding = 10
-        width = 400
-        height = 300
-        menu_x = (pygame.display.get_surface().get_width() - width) // 2
-        menu_y = (pygame.display.get_surface().get_height() - height) // 2
-        
-        # Check if click is within menu bounds
-        if not (menu_x <= x <= menu_x + width and menu_y <= y <= menu_y + height):
-            return False
-        
-        # Calculate which recipe was clicked
-        y_offset = menu_y + padding
-        click_index = (y - y_offset) // 30
-        
-        current_index = 0
-        for material, recipes in self.recipes.items():
-            for recipe in recipes:
-                if player.skills.smithing_level >= recipe.level:
-                    if current_index == click_index:
-                        self.craft_item(recipe, player)
-                        return True
-                    current_index += 1
-        
+        # If we have a hovered recipe, craft it
+        if self.hovered_recipe and player.skills.smithing_level >= self.hovered_recipe.level:
+            self.craft_item(self.hovered_recipe, player)
+            return True
+            
         return False
 
     def craft_item(self, recipe, player):
@@ -113,4 +110,8 @@ class CraftingMenu:
                 for i in range(recipe.bars_required):
                     player.inventory.items[bar_slots[i]] = ItemRegistry.create_item(bar_name.lower().replace(" ", "_"))
         else:
-            player.game.add_message(f"Need {recipe.bars_required} {bar_name}s to craft {recipe.name}") 
+            player.game.add_message(f"Need {recipe.bars_required} {bar_name}s to craft {recipe.name}")
+
+    def close(self):
+        self.is_open = False
+        self.hovered_recipe = None 

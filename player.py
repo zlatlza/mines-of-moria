@@ -322,7 +322,7 @@ class Player:
                 available_bars[material].append(i)
         
         if available_bars:
-            self.game.crafting_menu.is_open = True
+            self.game.menu_manager.open_menu(self.game.crafting_menu)
             self.game.crafting_menu.available_bars = available_bars
         else:
             self.game.add_message("You need metal bars to craft items")

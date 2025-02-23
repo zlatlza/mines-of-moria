@@ -70,6 +70,10 @@ class Game:
         self.show_hover_text = False  # New toggle variable
         self.show_tooltips = False  # Add this line to track tooltip state
         
+        # Add menu manager
+        from menu_manager import MenuManager
+        self.menu_manager = MenuManager()
+        
         # Add crafting menu
         from crafting_menu import CraftingMenu
         self.crafting_menu = CraftingMenu()
@@ -270,6 +274,20 @@ class Game:
             self.player.skills.draw(self.screen)
     
     def handle_click(self, pos, button):
+        # If crafting menu is open, check if click is outside
+        if hasattr(self, 'crafting_menu') and self.crafting_menu.is_open:
+            menu_rect = pygame.Rect(
+                (self.screen.get_width() - 400) // 2,  # x
+                (self.screen.get_height() - 300) // 2,  # y
+                400,  # width
+                300   # height
+            )
+            if not menu_rect.collidepoint(pos):
+                self.crafting_menu.close()
+                return True
+            if self.crafting_menu.handle_click(pos, self.player):
+                return True
+            
         # If inventory is open, let it handle clicks first
         if self.player.inventory.is_open:
             # Let inventory handle the click
@@ -303,11 +321,6 @@ class Game:
                     info += f" ({rock_data['name']}, Level {rock_data['mining_level']})"
                 
                 self.add_message(info)
-        
-        # Handle crafting menu clicks
-        if hasattr(self, 'crafting_menu') and self.crafting_menu.is_open:
-            if self.crafting_menu.handle_click(pos, self.player):
-                return True
         
         return True
     
